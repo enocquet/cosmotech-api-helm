@@ -1,0 +1,14 @@
+apiVersion: v1
+entries:
+  cosmotech-api:
+  - apiVersion: v2
+    appVersion: 4.0.0-dev
+    created: "2024-06-24T14:39:20.767560612+02:00"
+    description: Cosmo Tech Platform API
+    digest: 04ce4ea209f471aabfa12791e402c2d0c6bd249035c0c6aa68ae38562bbbe612
+    name: cosmotech-api
+    type: application
+    urls:
+    - cosmotech-api-4.0.0-dev.tgz
+    version: 4.0.0-dev
+generated: "2024-06-24T14:39:20.766648224+02:00"
