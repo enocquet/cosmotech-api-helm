@@ -3,12 +3,22 @@ entries:
   cosmotech-api:
   - apiVersion: v2
     appVersion: 4.0.0-dev
-    created: "2024-06-24T14:39:20.767560612+02:00"
+    created: "2024-06-24T16:47:09.024879948+02:00"
     description: Cosmo Tech Platform API
-    digest: 04ce4ea209f471aabfa12791e402c2d0c6bd249035c0c6aa68ae38562bbbe612
+    digest: 07f1ecd538c87829c9aa79f77f3a5efc6a48dc28d35fee157930c6613dc2f2dc
     name: cosmotech-api
     type: application
     urls:
     - cosmotech-api-4.0.0-dev.tgz
     version: 4.0.0-dev
-generated: "2024-06-24T14:39:20.766648224+02:00"
+  - apiVersion: v2
+    appVersion: 3.2.6
+    created: "2024-06-24T16:47:09.024306061+02:00"
+    description: Cosmo Tech Platform API
+    digest: b1b36bd7a411443e2633877ae7038614fec3c39a882babdd93023f4a9f3db61d
+    name: cosmotech-api
+    type: application
+    urls:
+    - cosmotech-api-3.2.6.tgz
+    version: 3.2.6
+generated: "2024-06-24T16:47:09.023643436+02:00"
