@@ -1,386 +1,656 @@
 # cosmotech-api
 
-[![Build, Test and Package](https://github.com/Cosmo-Tech/cosmotech-api/actions/workflows/build_test_package.yml/badge.svg)](https://github.com/Cosmo-Tech/cosmotech-api/actions/workflows/build_test_package.yml)
-[![Lint](https://github.com/Cosmo-Tech/cosmotech-api/actions/workflows/lint.yml/badge.svg)](https://github.com/Cosmo-Tech/cosmotech-api/actions/workflows/lint.yml)
-[![Doc](https://github.com/Cosmo-Tech/cosmotech-api/actions/workflows/doc.yml/badge.svg)](https://github.com/Cosmo-Tech/cosmotech-api/actions/workflows/doc.yml)
+![Version: 3.2.6](https://img.shields.io/badge/Version-3.2.6-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 3.2.6](https://img.shields.io/badge/AppVersion-3.2.6-informational?style=flat-square)
 
-[![OpenAPI](https://github.com/Cosmo-Tech/cosmotech-api/actions/workflows/openapi.yml/badge.svg)](https://csmphoenixdev.blob.core.windows.net/public/openapi.yaml)
-[![OpenAPI Clients](https://github.com/Cosmo-Tech/cosmotech-api/actions/workflows/openapi_clients.yml/badge.svg)](https://github.com/Cosmo-Tech/cosmotech-api/actions/workflows/openapi_clients.yml)
+Cosmo Tech Platform API
 
-[![Dev Deployment](https://github.com/Cosmo-Tech/cosmotech-api/actions/workflows/deploy.yml/badge.svg)](https://dev.api.cosmotech.com/)
-[![Staging Deployment](https://github.com/Cosmo-Tech/cosmotech-api/actions/workflows/deploy_staging.yml/badge.svg)](https://staging.api.cosmotech.com/)
 
-> AKS releases compatibilities
-- latest: 1.22+
-- v1: 1.21
+# How to Deploy the Cosmo Tech Platform on a Kubernetes Cluster
 
-> Cosmo Tech Cloud Platform API
+This guide provides instructions to deploy the Cosmo Tech platform on a Kubernetes cluster using Helm charts. The deployment includes several services in the following order: Minio, PostgreSQL, Argo Workflows, RabbitMQ, Redis, and finally, the Cosmo Tech API.
 
-The Cosmo Tech Cloud Platform API exposes a [REST](https://en.wikipedia.org/wiki/Representational_state_transfer) API based on [OpenAPI](https://swagger.io/specification/) definitions.
+## Prerequisites
 
-It is written in [Kotlin](https://kotlinlang.org/), makes use of the [Spring Boot framework](https://spring.io/projects/spring-boot), and is built with [Gradle](https://gradle.org/).
+Before starting the deployment, ensure you have the following:
+- A Kubernetes cluster
+- Helm installed
+- Access to the Kubernetes cluster (e.g., `kubectl` configured)
+- Required environment variables set up
+- A Kubernetes namespace for this deployment
 
-## Configuration changes from previous version
+## 1. Deploy Minio
 
-### Version 2.0.0
+Deploy Minio using the Bitnami Helm chart:
 
-In this version, several functionnalities were added:
-- RBAC/ACL functionnality: the possibility to manage rights/permissions for users on Organization/Workspace/Scenario
-- TwinCache functionnality: the possibility to cache input dataset in a cache solution
-- fine grade customization : 
-  - Image pull policy
-  - claim used for users email and users roles
-  - data ingestion (ADX) timeout
-  
-You can find the parameters to set in configuration:
-
-```
-csm:
-  platform:
-    ...
-    images:
-      ...
-      imagePullPolicy: "IfNotPresent"
-    ...
-    authorization:
-      ...
-      mailJwtClaim: upn
-      rolesJwtClaim: roles
-    ...
-    dataIngestion:
-      state:
-        noDataTimeOutSeconds: 180
-    ...
-    twincache:
-      host: <twin cache host>
-      password: <twin cache password>
-      port: "6379"
-      username: default
-    ...
-    rbac:
-      enabled: false
-```
-
-## Swagger UI
-
-This API is continuously deployed at the following URLs, so you can easily explore it :
-- Dev Environment: https://dev.api.cosmotech.com/
-- Staging Environment: https://staging.api.cosmotech.com/
-
-## Client Libraries
-
-[![JavaScript](https://img.shields.io/badge/JavaScript-cosmotech--api--javascript--client-yellowgreen)](https://github.com/Cosmo-Tech/cosmotech-api-javascript-client)
-[![TypeScript](https://img.shields.io/badge/TypeScript-cosmotech--api--typescript--client-brightgreen)](https://github.com/Cosmo-Tech/cosmotech-api-typescript-client)
-
-[![Java](https://img.shields.io/badge/Java-cosmotech--api--java--client-blue)](https://github.com/Cosmo-Tech/cosmotech-api-java-client)
-
-[![Python](https://img.shields.io/badge/Python-cosmotech--api--python--client-orange)](https://github.com/Cosmo-Tech/cosmotech-api-python-client)
-
-[![C#](https://img.shields.io/badge/C%23-cosmotech--api--csharp--client-lightgrey)](https://github.com/Cosmo-Tech/cosmotech-api-csharp-client)
-
-Note that the repositories for all these client libraries are automatically updated and kept in sync, if there is any change in the OpenAPI definition files (in the `main` branch of this repo).
-
-## Building
-
-### Prerequisites
-
-#### JDK
-
-As this project uses both Gradle and Kotlin, a [Java JDK](https://adoptium.net/?variant=openjdk17&jvmVariant=hotspot) (version 11 or higher) is required.
-
-We recommend installing your JDK with [SDKMAN!](https://sdkman.io/), a tool for managing parallel versions of multiple Software Development Kits on most Unix-based systems.
-
-To check your JDK version, run `java -version` :
-
-```shell
-❯ java -version
-openjdk version "17" 2021-09-14
-OpenJDK Runtime Environment Temurin-17+35 (build 17+35)
-OpenJDK 64-Bit Server VM Temurin-17+35 (build 17+35, mixed mode, sharing)
+```bash
+helm repo add bitnami https://charts.bitnami.com/bitnami
+helm install --namespace ${NAMESPACE} ${MINIO_RELEASE_NAME} bitnami/minio --values - <<EOF
+fullnameOverride: ${MINIO_RELEASE_NAME}
+defaultBuckets: "${BUCKET_NAMES}"
+persistence:
+  enabled: true
+  size: ${ARGO_MINIO_PERSISTENCE_SIZE}
+  existingClaim: ${MINIO_PVC_NAME}
+resources:
+  requests:
+    memory: ${ARGO_MINIO_REQUESTS_MEMORY}
+    cpu: "100m"
+  limits:
+    memory: ${ARGO_MINIO_REQUESTS_MEMORY}
+    cpu: "1"
+service:
+  type: ClusterIP
+podLabels:
+  networking/traffic-allowed: "yes"
+tolerations:
+- key: "vendor"
+  operator: "Equal"
+  value: "cosmotech"
+  effect: "NoSchedule"
+nodeSelector:
+  "cosmotech.com/tier": "services"
+auth:
+  rootUser: ${ARGO_MINIO_ACCESS_KEY}
+  rootPassword: ${ARGO_MINIO_SECRET_KEY}
+metrics:
+  serviceMonitor:
+    enabled: true
+    namespace: ${MONITORING_NAMESPACE}
+    interval: 30s
+    scrapeTimeout: 10s
+EOF
 ```
 
-#### GitHub Packages
+## 2. Deploy PostgreSQL
 
-This project requires some public dependencies that are stored in GitHub Packages,
-which requires users to be authenticated ([even for public repositories](https://github.community/t/download-from-github-package-registry-without-authentication/14407/131)).
+Deploy PostgreSQL using the Bitnami Helm chart:
 
-You must therefore create a GitHub Personal Access Token (PAT) with the permissions below in order to [work with Maven repositories](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-apache-maven-registry):
-- [read:packages](https://docs.github.com/en/packages/learn-github-packages/about-permissions-for-github-packages#about-scopes-and-permissions-for-package-registries)
-
-Then add the following lines to your `~/.gradle/gradle.properties` file. Create the file if it does not exist.
-
-```properties
-gpr.user=[GITHUB_USERNAME]
-gpr.key=[GITHUB_PAT]
+```bash
+helm install --namespace ${NAMESPACE} ${POSTGRES_RELEASE_NAME} bitnami/postgresql --values - <<EOF
+image:
+  debug: true
+auth:
+  enablePostgresUser: true
+  database: postgres
+  existingSecret: ${POSTGRESQL_SECRET_NAME}
+  secretKeys:
+    adminPasswordKey: postgres-password
+primary:
+  podLabels:
+    "networking/traffic-allowed": "yes"
+  tolerations:
+  - key: "vendor"
+    operator: "Equal"
+    value: "cosmotech"
+    effect: "NoSchedule"
+  nodeSelector:
+    "cosmotech.com/tier": "db"
+  persistence:
+    enabled: true
+    size: ${PERSISTENCE_SIZE}
+    existingClaim: ${PVC_NAME}
+  initdb:
+    user: postgres
+    password: ${POSTGRESQL_PASSWORD}
+    scriptsSecret: ${POSTGRESQL_INITDB_SECRET}
+resources:
+  requests:
+    memory: "64Mi"
+    cpu: "250m"
+  limits:
+    memory: "256Mi"
+    cpu: "1"
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    namespace: ${MONITORING_NAMESPACE}
+    interval: 30s
+    scrapeTimeout: 10s
+EOF
 ```
 
-### Running the build
+## 3. Deploy Argo Workflows
 
-```shell
-./gradlew build
+Deploy Argo Workflows using the Argo Helm chart:
+
+```bash
+helm repo add argo https://argoproj.github.io/argo-helm
+helm install --namespace ${NAMESPACE} ${ARGO_RELEASE_NAME} argo/argo-workflows --values - <<EOF
+singleNamespace: true
+createAggregateRoles: false
+crds:
+  install: false
+  keep: true
+images:
+  pullPolicy: IfNotPresent
+workflow:
+  serviceAccount:
+    create: true
+    name: ${ARGO_SERVICE_ACCOUNT}
+  rbac:
+    create: true
+executor:
+  env:
+  - name: RESOURCE_STATE_CHECK_INTERVAL
+    value: 1s
+  - name: WAIT_CONTAINER_STATUS_CHECK_INTERVAL
+    value: 1s
+useDefaultArtifactRepo: true
+artifactRepository:
+  archiveLogs: true
+  s3:
+    bucket: ${ARGO_BUCKET_NAME}
+    endpoint: ${MINIO_RELEASE_NAME}.${NAMESPACE}.svc.cluster.local:9000
+    insecure: true
+    accessKeySecret:
+      name: ${MINIO_RELEASE_NAME}
+      key: root-user
+    secretKeySecret:
+      name: ${MINIO_RELEASE_NAME}
+      key: root-password
+server:
+  clusterWorkflowTemplates:
+    enabled: false
+  extraArgs:
+  - --auth-mode=server
+  secure: false
+  podLabels:
+    networking/traffic-allowed: "yes"
+  tolerations:
+  - key: "vendor"
+    operator: "Equal"
+    value: "cosmotech"
+    effect: "NoSchedule"
+  nodeSelector:
+    "cosmotech.com/tier": "services"
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "1"
+controller:
+  extraArgs:
+  - "--managed-namespace"
+  - "${NAMESPACE}"
+  clusterWorkflowTemplates:
+    enabled: false
+  extraEnv:
+  - name: DEFAULT_REQUEUE_TIME
+    value: ${REQUEUE_TIME}
+  podLabels:
+    networking/traffic-allowed: "yes"
+  serviceMonitor:
+    enabled: true
+    namespace: ${MONITORING_NAMESPACE}
+  tolerations:
+  - key: "vendor"
+    operator: "Equal"
+    value: "cosmotech"
+    effect: "NoSchedule"
+  nodeSelector:
+    "cosmotech.com/tier": "services"
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "1"
+  containerRuntimeExecutor: k8sapi
+  metricsConfig:
+    enabled: true
+  workflowDefaults:
+    spec:
+      activeDeadlineSeconds: 604800
+      ttlStrategy:
+        secondsAfterSuccess: 86400
+        secondsAfterCompletion: 259200
+      podGC:
+        strategy: OnWorkflowSuccess
+      volumeClaimGC:
+        strategy: OnWorkflowCompletion
+  persistence:
+    archive: true
+    archiveTTL: ${ARCHIVE_TTL}
+    postgresql:
+      host: "${POSTGRES_RELEASE_NAME}-postgresql"
+      database: ${ARGO_DATABASE}
+      tableName: workflows
+      userNameSecret:
+        name: ${ARGO_POSTGRESQL_SECRET_NAME}
+        key: argo-username
+      passwordSecret:
+        name: ${ARGO_POSTGRESQL_SECRET_NAME}
+        key: argo-password
+mainContainer:
+  imagePullPolicy: IfNotPresent
+EOF
 ```
 
-The [Gradle Wrapper](https://docs.gradle.org/current/userguide/gradle_wrapper.html) script takes 
-care of downloading the Gradle distribution if needed and all dependencies declared in the project.
+## 4. Deploy RabbitMQ
 
-**Generated items**
+Deploy RabbitMQ using the Bitnami Helm chart:
 
-The `build` command above generates few items. Some of them are currently versioned to easily access them from this repo. However, there is no need to manually push them. They are automatically pushed if needed, as part of the Continuous Integration runs:
-
-- Documentation: [doc](doc)
-- PlantUML file and image: [openapi/plantuml](openapi/plantuml)
-
-
-## Running locally
-
-A `dev` [Spring Profile](https://docs.spring.io/spring-boot/docs/current/reference/html/features.html#features.profiles) is added to the list of active Profiles.
-
-You will therefore need to specify a `config/application-dev.yml` file, with sensitive configuration like
-
-You may want to copy and customize the [sample configuration](config/application-dev.sample.yml):
-
-```shell
-cp config/application-dev.sample.yml config/application-dev.yml
+```bash
+helm install --namespace ${NAMESPACE} ${RABBITMQ_RELEASE_NAME} bitnami/rabbitmq --values - <<EOF
+nodeSelector:
+  cosmotech.com/tier: services
+tolerations:
+  - key: vendor
+    operator: Equal
+    value: cosmotech
+    effect: NoSchedule
+auth:
+  existingPasswordSecret: ${INSTANCE_NAME}-secret
+  existingSecretPasswordKey: admin-password
+extraPlugins: "rabbitmq_amqp1_0 rabbitmq_prometheus"
+extraSecrets:
+  ${INSTANCE_NAME}-load-definition:
+    load_definition.json: |
+      {
+        "users": [
+          {
+            "name": "admin",
+            "password": "${ADMIN_PASSWORD}",
+            "tags": "administrator"
+          },
+          {
+            "name": "${LISTENER_USERNAME}",
+            "password": "${LISTENER_PASSWORD}",
+            "tags": ""
+          },
+          {
+            "name": "${SENDER_USERNAME}",
+            "password": "${SENDER_PASSWORD}",
+            "tags": ""
+          }
+        ],
+        "vhosts": [
+          {
+            "name": "/"
+          }
+        ],
+        "permissions": [
+          {
+            "user": "admin",
+            "vhost": "/",
+            "configure": ".*",
+            "write": ".*",
+            "read": ".*"
+          },
+          {
+            "user": "${LISTENER_USERNAME}",
+            "vhost": "/",
+            "configure": ".*",
+            "write": ".*",
+            "read": ".*"
+          },
+          {
+            "user": "${SENDER_USERNAME}",
+            "vhost": "/",
+            "configure": ".*",
+            "write": ".*",
+            "read": ".*"
+          }
+        ]
+      }
+loadDefinition:
+  enabled: true
+  existingSecret: ${INSTANCE_NAME}-load-definition
+extraConfiguration: |
+  load_definitions = /app/load_definition.json
+persistence:
+  enabled: true
+  size: ${PERSISTENCE_SIZE}
+  existingClaim: ${PVC_NAME}
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    namespace: ${MONITORING_NAMESPACE}
+    interval: 30s
+    scrapeTimeout: 10s
+EOF
 ```
 
-Also note that the `azure` Profile is activated by default. As such, the [application-azure.yml](api/src/main/resources/application-azure.yml) file is also read as part of the application configuration.
+## 5. Deploy Redis
 
-Now you can run the API Server with :
+Deploy Redis using the Bitnami Helm chart:
 
-```shell
-java -jar api/build/libs/cosmotech-api-<VERSION>-uberjar.jar
+```bash
+helm install --namespace ${NAMESPACE} ${REDIS_RELEASE_NAME} bitnami/redis --values - <<EOF
+auth:
+  password: ${REDIS_PASSWORD}
+serviceBindings: 
+  enabled: true
+image:
+  registry: ghcr.io
+  repository: cosmo-tech/cosmotech-redis
+  tag: ${VERSION_REDIS_COSMOTECH}
+volumePermissions:
+  enabled: true
+  image:
+    registry: docker.io
+    repository: bitnami/os-shell
+    tag: latest
+    pullPolicy: IfNotPresent
+sysctl:
+  image:
+    registry: docker.io
+    repository: bitnami/os-shell
+    tag: latest
+    pullPolicy: IfNotPresent
+master:
+  persistence:
+    enabled: true
+    size: ${REDIS_DISK_SIZE}
+    existingClaim: ${REDIS_MASTER_NAME_PVC}
+  podLabels:
+    networking/traffic-allowed: "yes"
+  tolerations:
+  - key: "vendor"
+    operator: "Equal"
+    value: "cosmotech"
+    effect: "NoSchedule"
+  nodeSelector:
+    cosmotech.com/tier: "db"
+  resources:
+    requests:
+      cpu: 500m
+      memory: 4Gi
+    limits:
+      cpu: 1000m
+      memory: 4Gi
+replica:
+  replicaCount: 1
+  podLabels:
+    networking/traffic-allowed: "yes"
+  persistence:
+    enabled: true
+    size: ${REDIS_DISK_SIZE}
+    existingClaim: ${REDIS_REPLICA_NAME_PVC}
+  tolerations:
+  - key: "vendor"
+    operator: "Equal"
+    value: "cosmotech"
+    effect: "NoSchedule"
+  nodeSelector:
+    "cosmotech.com/tier": "db"
+  resources:
+    requests:
+      cpu: 500m
+      memory: 4Gi
+    limits:
+      cpu: 1000m
+      memory: 4Gi
+commonConfiguration: |-
+  loadmodule /opt/bitnami/redis/modules/redisgraph.so
+  loadmodule /opt/bitnami/redis/modules/redistimeseries.so DUPLICATE_POLICY LAST
+  loadmodule /opt/bitnami/redis/modules/rejson.so
+  loadmodule /opt/bitnami/redis/modules/redisearch.so
+EOF
 ```
 
-You can also run the application via the `bootRun` Gradle task, like so:
 
-```shell
-./gradlew :cosmotech-api:bootRun
+## 6. Deploy Cosmo Tech API
+
+
+### Step 1: Add Helm Repository
+
+If you haven't already added the Helm repository for Cosmo Tech API, execute the following command:
+
+```bash
+helm repo add cosmotech https://cosmotech.github.io/helm-charts
+helm repo update
 ```
 
-Once the application is started, you can head to the Swagger UI exposed at http://localhost:8080 to
-navigate through the API.
+### Step 2: Deploy Cosmo Tech API
 
-If you use another Identity Provider like Okta, you must set the gradle property IdentityProvider:
-```shell
-./gradlew :cosmotech-api:bootRun -PidentityProvider=okta
+Deploy the Cosmo Tech API using the Helm chart with the specified values:
+
+```bash
+helm install ${RELEASE_NAME} cosmotech/cosmotech-api --namespace ${NAMESPACE} --values - <<EOF
+replicaCount: ${API_REPLICAS}
+api:
+  version: ${API_VERSION_PATH}
+  multiTenant: ${MULTI_TENANT}
+  servletContextPath: /cosmotech-api
+image:
+  repository: ghcr.io/cosmo-tech/cosmotech-api
+  tag: ${API_VERSION}
+argo:
+  imageCredentials:
+    password: ${ACR_LOGIN_PASSWORD}
+    registry: ${ACR_LOGIN_SERVER}
+    username: ${ACR_LOGIN_USERNAME}
+config:
+  api:
+    serviceMonitor:
+      enabled: ${MONITORING_ENABLED}
+      namespace: ${MONITORING_NAMESPACE}
+  logging:
+    level:
+      com.cosmotech: DEBUG
+      web: WARN
+      org.springframework: WARN
+      com.redis: WARN
+  server:
+    error:
+      include-stacktrace: always
+  csm:
+    platform:
+      containerRegistry:
+        # Add your container registry configuration here
+      identityProvider:
+        code: azure
+        authorizationUrl: "https://login.microsoftonline.com/${TENANT_ID}/oauth2/v2.0/authorize"
+        tokenUrl: "https://login.microsoftonline.com/${TENANT_ID}/oauth2/v2.0/token"
+        defaultScopes:
+          "[${APP_ID_URI}/platform]": "${TENANT_RESOURCE_GROUP} scope"
+        containerScopes:
+          "[${APP_ID_URI}/.default]": "${TENANT_RESOURCE_GROUP} scope"
+      namespace: ${NAMESPACE}
+      loki:
+        baseUrl: http://loki.${MONITORING_NAMESPACE}.svc.cluster.local:3100
+      argo:
+        base-uri: "http://${ARGO_RELEASE_NAME}-argo-workflows-server.${NAMESPACE}.svc.cluster.local:2746"
+        workflows:
+          namespace: ${NAMESPACE}
+          service-account-name: ${ARGO_SERVICE_ACCOUNT}
+      s3:
+        endpointUrl: ${S3_ENDPOINT_URL}
+        bucketName: ${S3_BUCKET_NAME}
+        accessKeyId: ${S3_ACCESS_KEY_ID}
+        secretAccessKey: ${S3_SECRET_ACCESS_KEY}
+      authorization:
+        allowedApiKeyConsumers: ${ALLOWED_API_KEY_CONSUMERS}
+        allowed-tenants: ${TENANT_ID}
+      azure:
+        appIdUri: ${APP_ID_URI}
+        containerRegistries:
+          solutions: ${ACR_LOGIN_SERVER}
+        cosmos:
+          key: ${COSMOS_KEY}
+          uri: ${COSMOS_URI}
+        credentials:
+          clientId: ${CLIENT_ID}
+          clientSecret: ${CLIENT_SECRET}
+          customer:
+            clientId: ${NETWORK_ADT_CLIENTID}
+            clientSecret: ${NETWORK_ADT_PASSWORD}
+            tenantId: ${TENANT_ID}
+          tenantId: ${TENANT_ID}
+        dataWarehouseCluster:
+          baseUri: ${ADX_URI}
+          options:
+            ingestionUri: ${ADX_INGESTION_URI}
+        eventBus:
+          baseUri: ${EVENTBUS_URI}
+        storage:
+          account-key: ${STORAGE_ACCOUNT_KEY}
+          account-name: ${STORAGE_ACCOUNT_NAME}
+      internalResultServices:
+        enabled: ${USE_INTERNAL_RESULT_SERVICES}
+        storage:
+          host: "${POSTGRESQL_RELEASE_NAME}-postgresql.${NAMESPACE}.svc.cluster.local"
+          port: 5432
+          reader:
+            username: ${POSTGRESQL_READER_USERNAME}
+            password: ${POSTGRESQL_READER_PASSWORD}
+          writer:
+            username: ${POSTGRESQL_WRITER_USERNAME}
+            password: ${POSTGRESQL_WRITER_PASSWORD}
+          admin:
+            username: ${POSTGRESQL_ADMIN_USERNAME}
+            password: ${POSTGRESQL_ADMIN_PASSWORD}
+        eventBus:
+          host: "${RABBITMQ_RELEASE_NAME}.${NAMESPACE}.svc.cluster.local"
+          port: 5672
+          listener:
+            username: ${RABBITMQ_LISTENER_USERNAME}
+            password: ${RABBITMQ_LISTENER_PASSWORD}
+          sender:
+            username: ${RABBITMQ_SENDER_USERNAME}
+            password: ${RABBITMQ_SENDER_PASSWORD}
+      twincache:
+        host: "cosmotechredis-${NAMESPACE}-master.${NAMESPACE}.svc.cluster.local"
+        port: ${REDIS_PORT}
+        username: "default"
+        password: ${REDIS_PASSWORD}
+ingress:
+  enabled: ${COSMOTECH_API_INGRESS_ENABLED}
+  annotations:
+    cert-manager.io/cluster-issuer: ${TLS_SECRET_NAME}
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/proxy-body-size: "0"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "30"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "30"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "30"
+    nginx.org/client-max-body-size: "0"
+  hosts:
+    - host: ${COSMOTECH_API_DNS_NAME}
+  tls:
+    - secretName: ${TLS_SECRET_NAME}
+      hosts: ["${COSMOTECH_API_DNS_NAME}"]
+resources:
+  limits:
+    memory: 2048Mi
+  requests:
+    memory: 1024Mi
+tolerations:
+- key: "vendor"
+  operator: "Equal"
+  value: "cosmotech"
+  effect: "NoSchedule"
+nodeSelector:
+  "cosmotech.com/tier": "services"
+EOF
 ```
 
-## Deploying
+### Step 4: Verify Deployment
 
-This project comes with a set of [Helm](https://helm.sh/) Charts to make it deployable to local or remote Kubernetes clusters.
+Check the deployment status using:
 
-### Prerequisites
-
-- [kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl)
-- [Helm](https://helm.sh/docs/intro/install/)
-
-### Azure Kubernetes Service (AKS)
-
-* Login against the container registry of your choice, like Azure Container Registries in the example below:
-
-```shell
-az login
-az acr login --name csmenginesdev
+```bash
+kubectl get pods -n ${NAMESPACE}
 ```
 
-* Build and push the container image, e.g.:
+### Step 5: Access Cosmo Tech API
 
-```shell
-./gradlew :cosmotech-api:jib \
-  -Djib.to.image=csmphoenixdev.azurecr.io/cosmotech-api:latest
-```
+Once deployed, access the Cosmo Tech API using the configured ingress hostname (${COSMOTECH_API_DNS_NAME}).
 
-* Configure the cluster
+## Conclusion
 
-This assumes you already retrieved the AKS cluster credentials, and configured your
-current `kubectl` context accordingly.
+You have successfully deployed the Cosmo Tech API on Kubernetes using Helm charts. Ensure all environment variables are correctly set and adjust configurations as needed for your environment.
 
-Otherwise, run `az aks get-credentials`, e.g.:
 
-```shell
-az aks get-credentials \
-  --resource-group phoenix \
-  --name phoenixAKSdev
-```
+This markdown guide provides a comprehensive walkthrough for deploying the Cosmo Tech API using Helm charts, ensuring clarity and completeness in the deployment process. Adjust the placeholders (${...}) with your actual values before executing the commands.
 
-* Run the deployment script
 
-```
- ./api/kubernetes/deploy_via_helm.sh --help
 
-This script takes at least 4 parameters.
+## Values
 
-The following optional environment variables can be set to alter this script behavior:
-- ARGO_MINIO_REQUESTS_MEMORY | units of bytes (default is 4Gi) | Memory requests for the Argo MinIO server
-- NGINX_INGRESS_CONTROLLER_ENABLED | boolean (default is false) | indicating whether an NGINX Ingress Controller should be deployed and an Ingress resource created too
-- NGINX_INGRESS_CONTROLLER_REPLICA_COUNT | int (default is 1) | number of pods for the NGINX Ingress Controller
-- NGINX_INGRESS_CONTROLLER_LOADBALANCER_IP | IP Address String | optional public IP Address to use as LoadBalancer IP. You can create one with this Azure CLI command: az network public-ip create --resource-group <my-rg>> --name <a-name> --sku Standard --allocation-method static --query publicIp.ipAddress -o tsv 
-- NGINX_INGRESS_CONTROLLER_HELM_ADDITIONAL_OPTIONS | Additional Helm options for the NGINX Ingress Controller | Additional options to pass to Helm when creating the Ingress Controller, e.g.: --set controller.service.annotations."service.beta.kubernetes.io/azure-load-balancer-resource-group"=my-azure-resource-group
-- CERT_MANAGER_ENABLED  | boolean (default is false). Deprecated - use TLS_CERTIFICATE_TYPE instead | indicating whether cert-manager should be deployed. It is in charge of requesting and managing renewal of Let's Encrypt certificates
-- CERT_MANAGER_INSTALL_WAIT_TIMEOUT | string (default is 3m) | how much time to wait for the cert-manager Helm Chart to be successfully deployed
-- CERT_MANAGER_USE_ACME_PROD | boolean (default is false) | whether to use the Let's Encrypt Production server. Note that this is subject to rate limiting
-- CERT_MANAGER_COSMOTECH_API_DNS_NAME | FQDN String. Deprecated - use COSMOTECH_API_DNS_NAME instead | DNS name, used for Let's Encrypt certificate requests, e.g.: dev.api.cosmotech.com
-- COSMOTECH_API_DNS_NAME | FQDN String | DNS name, used for configuring the Ingress resource, e.g.: dev.api.cosmotech.com
-- CERT_MANAGER_ACME_CONTACT_EMAIL | Email String. Deprecated - use TLS_CERTIFICATE_LET_S_ENCRYPT_CONTACT_EMAIL instead | contact email, used for Let's Encrypt certificate requests
-- TLS_CERTIFICATE_TYPE | one of 'none', 'custom', 'let_s_encrypt' | strategy for TLS certificates
-- TLS_CERTIFICATE_LET_S_ENCRYPT_CONTACT_EMAIL | Email String | contact email, used for Let's Encrypt certificate requests
-- TLS_CERTIFICATE_CUSTOM_CERTIFICATE_PATH | File path | path to a file containing the custom TLS certificate to use for HTTPS
-- TLS_CERTIFICATE_CUSTOM_KEY_PATH | File path | path to a file containing the key for the custom TLS certificate to use for HTTPS
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| affinity | object | `{}` | default behavior is a pod anti-affinity, which prevents pods from co-locating on a same node |
+| api.multiTenant | bool | `true` |  |
+| api.probes.liveness.failureThreshold | int | `5` |  |
+| api.probes.liveness.timeoutSeconds | int | `10` |  |
+| api.probes.readiness.failureThreshold | int | `5` |  |
+| api.probes.readiness.timeoutSeconds | int | `10` |  |
+| api.probes.startup.failureThreshold | int | `50` |  |
+| api.probes.startup.initialDelaySeconds | int | `60` |  |
+| api.serviceMonitor.additionalLabels | object | `{}` |  |
+| api.serviceMonitor.enabled | bool | `true` |  |
+| api.serviceMonitor.namespace | string | `"cosmotech-monitoring"` |  |
+| api.servletContextPath | string | `"/"` |  |
+| api.version | string | `"latest"` |  |
+| argo.imageCredentials.password | string | `""` | password for registry to use for pulling the Workflow images. Useful if you are using a private registry |
+| argo.imageCredentials.registry | string | `""` | container registry to use for pulling the Workflow images. Useful if you are using a private registry |
+| argo.imageCredentials.username | string | `""` | username for the container registry to use for pulling the Workflow images. Useful if you are using a private registry |
+| argo.storage.class | object | `{"install":true,"mountOptions":["dir_mode=0777","file_mode=0777","uid=0","gid=0","mfsymlinks","cache=strict","actimeo=30"],"parameters":{"skuName":"Premium_LRS"},"provisioner":"kubernetes.io/azure-file"}` | storage class used by Workflows submitted to Argo |
+| argo.storage.class.install | bool | `true` | whether to install the storage class |
+| argo.storage.class.mountOptions | list | `["dir_mode=0777","file_mode=0777","uid=0","gid=0","mfsymlinks","cache=strict","actimeo=30"]` | mount options, depending on the volume plugin configured. If the volume plugin does not support mount options but mount options are specified, provisioning will fail. |
+| argo.storage.class.parameters | object | `{"skuName":"Premium_LRS"}` | Parameters describe volumes belonging to the storage class. Different parameters may be accepted depending on the provisioner. |
+| argo.storage.class.provisioner | string | `"kubernetes.io/azure-file"` | volume plugin used for provisioning Persistent Volumes |
+| autoscaling.enabled | bool | `false` |  |
+| autoscaling.maxReplicas | int | `100` |  |
+| autoscaling.minReplicas | int | `1` |  |
+| autoscaling.targetCPUUtilizationPercentage | int | `80` |  |
+| autoscaling.targetMemoryUtilizationPercentage | int | `80` |  |
+| config.csm.platform.argo.base-uri | string | `"http://argo-server:2746"` |  |
+| config.csm.platform.argo.workflows.access-modes[0] | string | `"ReadWriteMany"` | Any in the following list: ReadWriteOnce, ReadOnlyMany, ReadWriteMany, ReadWriteOncePod (K8s 1.22+). ReadWriteMany is recommended, as we are likely to have parallel pods accessing the volume |
+| config.csm.platform.argo.workflows.requests.storage | string | `"100Gi"` |  |
+| config.csm.platform.argo.workflows.storage-class | string | `nil` | Name of the storage class for Workflows volumes. Useful if you want to use a different storage class, installed and managed externally. In this case, you should set argo.storage.class.install to false. |
+| config.csm.platform.authorization.allowed-tenants | list | `[]` |  |
+| config.csm.platform.azure.containerRegistries.solutions | string | `""` |  |
+| config.csm.platform.azure.credentials.clientId | string | `"changeme"` | Core App Registration Client ID. Deprecated. Use `config.csm.platform.azure.credentials.core.clientId` instead |
+| config.csm.platform.azure.credentials.clientSecret | string | `"changeme"` | Core App Registration Client Secret. Deprecated. Use `config.csm.platform.azure.credentials.core.clientSecret` instead |
+| config.csm.platform.azure.credentials.customer.clientId | string | `"changeme"` | Customer-provided App Registration Client ID. Workaround for connecting to Azure Digital Twins in the context of a Managed App |
+| config.csm.platform.azure.credentials.customer.clientSecret | string | `"changeme"` | Customer-provided App Registration Client Secret. Workaround for connecting to Azure Digital Twins in the context of a Managed App |
+| config.csm.platform.azure.credentials.customer.tenantId | string | `"changeme"` | Customer-provided App Registration Tenant ID. Workaround for connecting to Azure Digital Twins in the context of a Managed App |
+| config.csm.platform.azure.credentials.tenantId | string | `"changeme"` | Core App Registration Tenant ID. Deprecated. Use `config.csm.platform.azure.credentials.core.tenantId` instead |
+| config.csm.platform.azure.dataWarehouseCluster.baseUri | string | `"changeme"` |  |
+| config.csm.platform.azure.dataWarehouseCluster.options.ingestionUri | string | `"changeme"` |  |
+| config.csm.platform.azure.eventBus.baseUri | string | `"changeme"` |  |
+| config.csm.platform.s3.accessKeyId | string | `"changeme"` |  |
+| config.csm.platform.s3.bucketName | string | `"changeme"` |  |
+| config.csm.platform.s3.endpointUrl | string | `"http://s3-server:9000"` |  |
+| config.csm.platform.s3.secretAccessKey | string | `"changeme"` |  |
+| config.csm.platform.vendor | string | `"azure"` |  |
+| deploymentStrategy | object | `{"rollingUpdate":{"maxSurge":1,"maxUnavailable":"50%"},"type":"RollingUpdate"}` | Deployment strategy |
+| deploymentStrategy.rollingUpdate.maxSurge | int | `1` | maximum number of Pods that can be created over the desired number of Pods |
+| deploymentStrategy.rollingUpdate.maxUnavailable | string | `"50%"` | maximum number of Pods that can be unavailable during the update process |
+| fullnameOverride | string | `""` | value overriding the full name of the Chart. If not set, the value is computed from `nameOverride`. Truncated at 63 chars because some Kubernetes name fields are limited to this. |
+| image.pullPolicy | string | `"Always"` | [policy](https://kubernetes.io/docs/concepts/containers/images/#updating-images) for pulling the image |
+| image.repository | string | `"ghcr.io/cosmo-tech/cosmotech-api"` | container image to use for deployment |
+| image.tag | string | `""` | container image tag. Defaults to the Chart `appVersion` if empty or missing |
+| imageCredentials.password | string | `""` | password for registry to use for pulling the Deployment image. Useful if you are using a private registry |
+| imageCredentials.registry | string | `""` | container registry to use for pulling the Deployment image. Useful if you are using a private registry |
+| imageCredentials.username | string | `""` | username for the container registry to use for pulling the Deployment image. Useful if you are using a private registry |
+| ingress.annotations | object | `{}` |  |
+| ingress.enabled | bool | `false` |  |
+| ingress.hosts[0].host | string | `"chart-example.local"` |  |
+| ingress.hosts[0].paths[0].path | string | `"/"` |  |
+| ingress.hosts[0].paths[0].pathType | string | `"Prefix"` |  |
+| ingress.tls | list | `[]` |  |
+| nameOverride | string | `""` | value overriding the name of the Chart. Defaults to the Chart name. Truncated at 63 chars because some Kubernetes name fields are limited to this. |
+| nodeSelector | object | `{}` |  |
+| podAnnotations | object | `{}` | annotations to set the Deployment pod |
+| podSecurityContext | object | `{"runAsNonRoot":true}` | the pod security context, i.e. applicable to all containers part of the pod |
+| replicaCount | int | `3` | number of pods replicas |
+| resources | object | `{"limits":{"cpu":"1000m","memory":"1024Mi"},"requests":{"cpu":"500m","memory":"512Mi"}}` | resources limits and requests for the pod placement |
+| securityContext | object | `{"readOnlyRootFilesystem":true}` | the security context at the pod container level |
+| service.managementPort | int | `8081` | service management port |
+| service.port | int | `8080` | service port |
+| service.type | string | `"ClusterIP"` | service type. See [this page](https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types) for the possible values |
+| serviceAccount.annotations | object | `{}` | annotations to add to the service account |
+| serviceAccount.create | bool | `true` | whether a service account should be created |
+| serviceAccount.name | string | `""` | the name of the service account to use. If not set and `serviceAccount.create` is `true`, a name is generated using the `fullname` template |
+| tolerations | list | `[]` |  |
 
-Usage: ./deploy_via_helm.sh CHART_PACKAGE_VERSION NAMESPACE ARGO_POSTGRESQL_PASSWORD API_VERSION [any additional options to pass as is to the cosmotech-api Helm Chart]
-
-Examples:
-
-- ./deploy_via_helm.sh latest phoenix "a-super-secret-password-for-postgresql" latest \
-    --values /path/to/my/cosmotech-api-values.yaml \
-    --set image.pullPolicy=Always
-
-- ./deploy_via_helm.sh 1.0.1 phoenix "change-me" v1 --values /path/to/my/cosmotech-api-values.yaml
-```
-
-You may want to use a dedicated `values.yaml` file instead, like below.
-Feel free to copy and customize this [values-azure.yaml](api/kubernetes/helm-chart/values-azure.yaml) file as needed.
-
-```shell
-./api/kubernetes/deploy_via_helm.sh latest phoenix "a-secret" latest --values /path/to/my/values-azure-dev.yaml
-```
-
-See the dedicated [README](api/kubernetes/helm-chart/README.md) for more details about the different properties.
-
-### Local Kubernetes Cluster
-
-* Spawn a local cluster. Skip if you already have configured a local cluster.
-
-Otherwise, you may want to leverage the [scripts/kubernetes/create-local-k8s-cluster.sh](scripts/kubernetes/create-local-k8s-cluster.sh) script,
-  which provisions a local [Kind](https://kind.sigs.k8s.io/) cluster, along with a private local container 
-registry and an [NGINX Ingress Controller](https://kubernetes.github.io/ingress-nginx/).
-
-To use it, simply [install Kind](https://kind.sigs.k8s.io/docs/user/quick-start/#installation), and run the script, like so (`<cluster_name>` is optional and defaults to `local-k8s-cluster`):
-
-```shell
-/bin/sh -c scripts/kubernetes/create-local-k8s-cluster.sh [<cluster_name>]
-```
-This creates a Kubernetes context named `kind-<cluster_name>`.
-  
-* Build and push the container image to the local registry, e.g.:
-
-```shell
-./gradlew :cosmotech-api:jib \
-  -Djib.allowInsecureRegistries=true \
-  -Djib.to.image=localhost:5000/cosmotech-api:latest
-```
-
-* Create the namespace if needed
-
-```shell
-kubectl create namespace phoenix
-```
-
-* Run the dev deployment script
-
-**Example**
-
-```
-./api/kubernetes/deploy_via_helm-dev.sh phoenix "a-super-secret-password" latest --values /path/to/my/values-dev.yaml
-```
-
-This uses the default [values-dev.yaml](api/kubernetes/helm-chart/values-dev.yaml).
-
-**Usage**
-
-```
-❯ ./api/kubernetes/deploy_via_helm-dev.sh --help                                                                                         
-                                             
-This script takes at least 3 parameters.
-
-The following optional environment variables can be set to alter this script behavior:
-- ARGO_MINIO_REQUESTS_MEMORY | units of bytes (default is 4Gi) | Memory requests for the Argo MinIO server
-
-Usage: ./deploy_via_helm-dev.sh NAMESPACE ARGO_POSTGRESQL_PASSWORD API_VERSION [any additional options to pass as is to the cosmotech-api Helm Chart]
-
-```
-
-See the dedicated [README](api/kubernetes/helm-chart/README.md) for more details about the different properties.
-
-## Contributing
-
-Feel free to submit pull requests or open issues for bugs or feature requests.
-
-We leverage the following tools to enforce code formatting and for code static analysis:
-- [Spotless](https://github.com/diffplug/spotless)
-- [Detekt](https://detekt.github.io/detekt/)
-- [KubeLinter](https://github.com/stackrox/kube-linter) and [helm lint](https://helm.sh/docs/helm/helm_lint/)
-
-These checks are automatically enforced as part of the continuous integration runs on GitHub.  
-
-### Coding Style
-
-Code must comply with the common community standards for Kotlin and Java conventions,
-based on the [Google Java Style Guide](https://google.github.io/styleguide/javaguide.html).
-
-You can reformat your changes at any time using the `spotlessApply` Gradle task, like so:
-```shell
-./gradlew spotlessApply
-```
-
-Under the hood, this leverages [ktfmt](https://github.com/facebookincubator/ktfmt) for Kotlin code 
-and [google-java-format](https://github.com/google/google-java-format) for Java code.
-
-This makes an attempt to reformat the code to meet the style requirements. 
-So make sure to push any resulting changes.
-
-To check that your changes comply with the coding style, run:
-```shell
-./gradlew spotlessCheck
-```
-
-### Static Code Analysis
-
-[Detekt](https://detekt.github.io/detekt/) helps identify code smells in Kotlin code. 
-And [KubeLinter](https://github.com/stackrox/kube-linter) does the same in Kubernetes YAML resources and Helm Charts.
-Container images built are also scanned for common vulnerabilities (CVEs) and best practices violations, using the [Container Scan Action](https://github.com/Azure/container-scan).
-
-Reports are then uploaded to GitHub Code Scanning, under the Security tab of the repo : https://github.com/Cosmo-Tech/cosmotech-api/security/code-scanning
-
-#### Detekt
-
-To run a local analysis with Detekt, simply run the `detekt` Gradle task:
-```shell
-./gradlew detekt
-```
-
-You will then find the reports for the different sub-projects in the `build/reports/detekt` folder, under different formats: Plain text, HTML, and [SARIF](https://sarifweb.azurewebsites.net/). 
-
-#### KubeLinter
-
-To run a local analysis of the Helm Charts maintained in this repo:
-- install KubeLinter : https://github.com/stackrox/kube-linter#installing-kubelinter
-- Run KubeLinter against the 2 Charts:
-
-```shell
-kube-linter --config api/kubernetes/.kube-linter.yaml lint api/kubernetes/helm-chart
-```
-
-```shell
-kube-linter --config api/kubernetes/.kube-linter.yaml lint api/kubernetes/csm-argo
-```
-
-## License
-
-    Copyright 2021 Cosmo Tech
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software
-    and associated documentation files (the "Software"), to deal in the Software without
-    restriction, including without limitation the rights to use, copy, modify, merge, publish,
-    distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the
-    Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or
-    substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING
-    BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-    NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
-    DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
+----------------------------------------------
+Autogenerated from chart metadata using [helm-docs v1.5.0](https://github.com/norwoodj/helm-docs/releases/v1.5.0)
