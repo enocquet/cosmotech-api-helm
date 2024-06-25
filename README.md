@@ -360,10 +360,10 @@ master:
   resources:
     requests:
       cpu: 500m
-      memory: 2Gi
+      memory: 4Gi
     limits:
       cpu: 1000m
-      memory: 2Gi
+      memory: 4Gi
 replica:
   replicaCount: 1
   podLabels:
@@ -382,10 +382,10 @@ replica:
   resources:
     requests:
       cpu: 500m
-      memory: 2Gi
+      memory: 4Gi
     limits:
       cpu: 1000m
-      memory: 2Gi
+      memory: 4Gi
 commonConfiguration: |-
   loadmodule /opt/bitnami/redis/modules/redisgraph.so
   loadmodule /opt/bitnami/redis/modules/redistimeseries.so DUPLICATE_POLICY LAST
@@ -393,6 +393,182 @@ commonConfiguration: |-
   loadmodule /opt/bitnami/redis/modules/redisearch.so
 EOF
 ```
+
+
+## 6. Deploy Cosmo Tech API
+
+
+### Step 1: Add Helm Repository
+
+If you haven't already added the Helm repository for Cosmo Tech API, execute the following command:
+
+```bash
+helm repo add cosmotech https://cosmotech.github.io/helm-charts
+helm repo update
+```
+
+### Step 2: Deploy Cosmo Tech API
+
+Deploy the Cosmo Tech API using the Helm chart with the specified values:
+
+```bash
+helm install ${RELEASE_NAME} cosmotech/cosmotech-api --namespace ${NAMESPACE} --values - <<EOF
+replicaCount: ${API_REPLICAS}
+api:
+  version: ${API_VERSION_PATH}
+  multiTenant: ${MULTI_TENANT}
+  servletContextPath: /cosmotech-api
+image:
+  repository: ghcr.io/cosmo-tech/cosmotech-api
+  tag: ${API_VERSION}
+argo:
+  imageCredentials:
+    password: ${ACR_LOGIN_PASSWORD}
+    registry: ${ACR_LOGIN_SERVER}
+    username: ${ACR_LOGIN_USERNAME}
+config:
+  api:
+    serviceMonitor:
+      enabled: ${MONITORING_ENABLED}
+      namespace: ${MONITORING_NAMESPACE}
+  logging:
+    level:
+      com.cosmotech: DEBUG
+      web: WARN
+      org.springframework: WARN
+      com.redis: WARN
+  server:
+    error:
+      include-stacktrace: always
+  csm:
+    platform:
+      containerRegistry:
+        # Add your container registry configuration here
+      identityProvider:
+        code: azure
+        authorizationUrl: "https://login.microsoftonline.com/${TENANT_ID}/oauth2/v2.0/authorize"
+        tokenUrl: "https://login.microsoftonline.com/${TENANT_ID}/oauth2/v2.0/token"
+        defaultScopes:
+          "[${APP_ID_URI}/platform]": "${TENANT_RESOURCE_GROUP} scope"
+        containerScopes:
+          "[${APP_ID_URI}/.default]": "${TENANT_RESOURCE_GROUP} scope"
+      namespace: ${NAMESPACE}
+      loki:
+        baseUrl: http://loki.${MONITORING_NAMESPACE}.svc.cluster.local:3100
+      argo:
+        base-uri: "http://${ARGO_RELEASE_NAME}-argo-workflows-server.${NAMESPACE}.svc.cluster.local:2746"
+        workflows:
+          namespace: ${NAMESPACE}
+          service-account-name: ${ARGO_SERVICE_ACCOUNT}
+      s3:
+        endpointUrl: ${S3_ENDPOINT_URL}
+        bucketName: ${S3_BUCKET_NAME}
+        accessKeyId: ${S3_ACCESS_KEY_ID}
+        secretAccessKey: ${S3_SECRET_ACCESS_KEY}
+      authorization:
+        allowedApiKeyConsumers: ${ALLOWED_API_KEY_CONSUMERS}
+        allowed-tenants: ${TENANT_ID}
+      azure:
+        appIdUri: ${APP_ID_URI}
+        containerRegistries:
+          solutions: ${ACR_LOGIN_SERVER}
+        cosmos:
+          key: ${COSMOS_KEY}
+          uri: ${COSMOS_URI}
+        credentials:
+          clientId: ${CLIENT_ID}
+          clientSecret: ${CLIENT_SECRET}
+          customer:
+            clientId: ${NETWORK_ADT_CLIENTID}
+            clientSecret: ${NETWORK_ADT_PASSWORD}
+            tenantId: ${TENANT_ID}
+          tenantId: ${TENANT_ID}
+        dataWarehouseCluster:
+          baseUri: ${ADX_URI}
+          options:
+            ingestionUri: ${ADX_INGESTION_URI}
+        eventBus:
+          baseUri: ${EVENTBUS_URI}
+        storage:
+          account-key: ${STORAGE_ACCOUNT_KEY}
+          account-name: ${STORAGE_ACCOUNT_NAME}
+      internalResultServices:
+        enabled: ${USE_INTERNAL_RESULT_SERVICES}
+        storage:
+          host: "${POSTGRESQL_RELEASE_NAME}-postgresql.${NAMESPACE}.svc.cluster.local"
+          port: 5432
+          reader:
+            username: ${POSTGRESQL_READER_USERNAME}
+            password: ${POSTGRESQL_READER_PASSWORD}
+          writer:
+            username: ${POSTGRESQL_WRITER_USERNAME}
+            password: ${POSTGRESQL_WRITER_PASSWORD}
+          admin:
+            username: ${POSTGRESQL_ADMIN_USERNAME}
+            password: ${POSTGRESQL_ADMIN_PASSWORD}
+        eventBus:
+          host: "${RABBITMQ_RELEASE_NAME}.${NAMESPACE}.svc.cluster.local"
+          port: 5672
+          listener:
+            username: ${RABBITMQ_LISTENER_USERNAME}
+            password: ${RABBITMQ_LISTENER_PASSWORD}
+          sender:
+            username: ${RABBITMQ_SENDER_USERNAME}
+            password: ${RABBITMQ_SENDER_PASSWORD}
+      twincache:
+        host: "cosmotechredis-${NAMESPACE}-master.${NAMESPACE}.svc.cluster.local"
+        port: ${REDIS_PORT}
+        username: "default"
+        password: ${REDIS_PASSWORD}
+ingress:
+  enabled: ${COSMOTECH_API_INGRESS_ENABLED}
+  annotations:
+    cert-manager.io/cluster-issuer: ${TLS_SECRET_NAME}
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/proxy-body-size: "0"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "30"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "30"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "30"
+    nginx.org/client-max-body-size: "0"
+  hosts:
+    - host: ${COSMOTECH_API_DNS_NAME}
+  tls:
+    - secretName: ${TLS_SECRET_NAME}
+      hosts: ["${COSMOTECH_API_DNS_NAME}"]
+resources:
+  limits:
+    memory: 2048Mi
+  requests:
+    memory: 1024Mi
+tolerations:
+- key: "vendor"
+  operator: "Equal"
+  value: "cosmotech"
+  effect: "NoSchedule"
+nodeSelector:
+  "cosmotech.com/tier": "services"
+EOF
+```
+
+### Step 4: Verify Deployment
+
+Check the deployment status using:
+
+```bash
+kubectl get pods -n ${NAMESPACE}
+```
+
+### Step 5: Access Cosmo Tech API
+
+Once deployed, access the Cosmo Tech API using the configured ingress hostname (${COSMOTECH_API_DNS_NAME}).
+
+## Conclusion
+
+You have successfully deployed the Cosmo Tech API on Kubernetes using Helm charts. Ensure all environment variables are correctly set and adjust configurations as needed for your environment.
+
+
+This markdown guide provides a comprehensive walkthrough for deploying the Cosmo Tech API using Helm charts, ensuring clarity and completeness in the deployment process. Adjust the placeholders (${...}) with your actual values before executing the commands.
+
 
 
 ## Values
