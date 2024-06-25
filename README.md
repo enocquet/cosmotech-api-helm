@@ -550,7 +550,7 @@ nodeSelector:
 EOF
 ```
 
-### Step 4: Verify Deployment
+### Step 3: Verify Deployment
 
 Check the deployment status using:
 
@@ -558,7 +558,7 @@ Check the deployment status using:
 kubectl get pods -n ${NAMESPACE}
 ```
 
-### Step 5: Access Cosmo Tech API
+### Step 4: Access Cosmo Tech API
 
 Once deployed, access the Cosmo Tech API using the configured ingress hostname (${COSMOTECH_API_DNS_NAME}).
 
