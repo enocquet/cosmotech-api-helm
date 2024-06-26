@@ -24,7 +24,7 @@ Deploy Minio using the Bitnami Helm chart:
 
 ```bash
 helm repo add bitnami https://charts.bitnami.com/bitnami
-helm install --namespace ${NAMESPACE} ${MINIO_RELEASE_NAME} bitnami/minio --values - <<EOF
+helm install --namespace ${NAMESPACE} ${MINIO_RELEASE_NAME} bitnami/minio --version "12.1.3" --values - <<EOF
 fullnameOverride: ${MINIO_RELEASE_NAME}
 defaultBuckets: "${BUCKET_NAMES}"
 persistence:
@@ -66,7 +66,7 @@ EOF
 Deploy PostgreSQL using the Bitnami Helm chart:
 
 ```bash
-helm install --namespace ${NAMESPACE} ${POSTGRES_RELEASE_NAME} bitnami/postgresql --values - <<EOF
+helm install --namespace ${NAMESPACE} ${POSTGRES_RELEASE_NAME} bitnami/postgresql --version "11.6.12" --values - <<EOF
 image:
   debug: true
 auth:
@@ -116,7 +116,7 @@ Deploy Argo Workflows using the Argo Helm chart:
 
 ```bash
 helm repo add argo https://argoproj.github.io/argo-helm
-helm install --namespace ${NAMESPACE} ${ARGO_RELEASE_NAME} argo/argo-workflows --values - <<EOF
+helm install --namespace ${NAMESPACE} ${ARGO_RELEASE_NAME} argo/argo-workflows --version "0.16.6" --values - <<EOF
 singleNamespace: true
 createAggregateRoles: false
 crds:
@@ -235,7 +235,7 @@ EOF
 Deploy RabbitMQ using the Bitnami Helm chart:
 
 ```bash
-helm install --namespace ${NAMESPACE} ${RABBITMQ_RELEASE_NAME} bitnami/rabbitmq --values - <<EOF
+helm install --namespace ${NAMESPACE} ${RABBITMQ_RELEASE_NAME} bitnami/rabbitmq --version "13.0.3" --values - <<EOF
 nodeSelector:
   cosmotech.com/tier: services
 tolerations:
@@ -321,7 +321,7 @@ EOF
 Deploy Redis using the Bitnami Helm chart:
 
 ```bash
-helm install --namespace ${NAMESPACE} ${REDIS_RELEASE_NAME} bitnami/redis --values - <<EOF
+helm install --namespace ${NAMESPACE} ${REDIS_RELEASE_NAME} bitnami/redis --version "1.0.8" --values - <<EOF
 auth:
   password: ${REDIS_PASSWORD}
 serviceBindings: 
@@ -412,7 +412,7 @@ helm repo update
 Deploy the Cosmo Tech API using the Helm chart with the specified values:
 
 ```bash
-helm install ${RELEASE_NAME} cosmotech/cosmotech-api --namespace ${NAMESPACE} --values - <<EOF
+helm install ${RELEASE_NAME} cosmotech/cosmotech-api --namespace ${NAMESPACE} --version "3.2.6" --values - <<EOF
 replicaCount: ${API_REPLICAS}
 api:
   version: ${API_VERSION_PATH}
