@@ -321,7 +321,7 @@ EOF
 Deploy Redis using the Bitnami Helm chart:
 
 ```bash
-helm install --namespace ${NAMESPACE} ${REDIS_RELEASE_NAME} bitnami/redis --version "1.0.8" --values - <<EOF
+helm install --namespace ${NAMESPACE} ${REDIS_RELEASE_NAME} bitnami/redis --version "17.8.0" --values - <<EOF
 auth:
   password: ${REDIS_PASSWORD}
 serviceBindings: 
